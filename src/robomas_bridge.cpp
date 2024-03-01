@@ -252,6 +252,11 @@ namespace robomas_bridge
               std::memcpy(raw_data.data() + 15, &(robomasFrame->tyoku_vel_target), sizeof(float));
               std::memcpy(raw_data.data() + 19, &(robomasFrame->tyoku_pos_target), sizeof(float));
               break;
+              case 4:
+                std::memcpy(raw_data.data() + 3, &(robomasFrame->velkp), sizeof(float));
+                std::memcpy(raw_data.data() + 7, &(robomasFrame->velki), sizeof(float));
+                std::memcpy(raw_data.data() + 11, &(robomasFrame->poskp), sizeof(float));
+                std::memcpy(raw_data.data() + 15, &(robomasFrame->stable_pos_limit_vel), sizeof(float));
             default:
               RCLCPP_ERROR(get_logger(), "robomasFrame->mode error");
               break;
