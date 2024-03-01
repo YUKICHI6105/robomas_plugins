@@ -1,0 +1,10 @@
+std_msgs/Header header
+uint8 motor
+uint8 mode
+uint8 temp
+float32 velkp
+float32 velki
+float32 poskp
+float32 tyoku_vel_target
+float32 tyoku_pos_target
+float32 stable_pos_limit_vel

@@ -1,0 +1,25 @@
+{
+    "ros.distro": "humble",
+    "python.autoComplete.extraPaths": [
+        "/home/yukichi6105/nhk24_ws/install/odom_check/local/lib/python3.10/dist-packages",
+        "/home/yukichi6105/nhk24_ws/install/nhk24_use_amcl/local/lib/python3.10/dist-packages",
+        "/home/yukichi6105/nhk24_ws/install/can_plugins2/local/lib/python3.10/dist-packages",
+        "/home/yukichi6105/ros2_ws/install/tutorial_interfaces/local/lib/python3.10/dist-packages",
+        "/home/yukichi6105/ros2_ws/install/odom_check/local/lib/python3.10/dist-packages",
+        "/home/yukichi6105/ros2_ws/install/can_plugins2_plus/local/lib/python3.10/dist-packages",
+        "/home/yukichi6105/ros2_ws/install/can_plugins2/local/lib/python3.10/dist-packages",
+        "/opt/ros/humble/lib/python3.10/site-packages",
+        "/opt/ros/humble/local/lib/python3.10/dist-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/yukichi6105/nhk24_ws/install/odom_check/local/lib/python3.10/dist-packages",
+        "/home/yukichi6105/nhk24_ws/install/nhk24_use_amcl/local/lib/python3.10/dist-packages",
+        "/home/yukichi6105/nhk24_ws/install/can_plugins2/local/lib/python3.10/dist-packages",
+        "/home/yukichi6105/ros2_ws/install/tutorial_interfaces/local/lib/python3.10/dist-packages",
+        "/home/yukichi6105/ros2_ws/install/odom_check/local/lib/python3.10/dist-packages",
+        "/home/yukichi6105/ros2_ws/install/can_plugins2_plus/local/lib/python3.10/dist-packages",
+        "/home/yukichi6105/ros2_ws/install/can_plugins2/local/lib/python3.10/dist-packages",
+        "/opt/ros/humble/lib/python3.10/site-packages",
+        "/opt/ros/humble/local/lib/python3.10/dist-packages"
+    ]
+}
