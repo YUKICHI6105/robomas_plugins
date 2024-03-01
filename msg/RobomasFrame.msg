@@ -1,5 +1,6 @@
 std_msgs/Header header
 uint8 motor
+bool c620
 uint8 mode
 uint8 temp
 float32 velkp

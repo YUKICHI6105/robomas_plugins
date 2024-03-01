@@ -227,7 +227,11 @@ namespace robomas_bridge
 
             std::vector<uint8_t> raw_data(19);
             // command&C610orC620id&motorID[1]|mode[1]|temp[1]|kp[4]|ki[4]|kd[4]|limitie[4]
-            raw_data[0] = (0x30 + (0x0f & robomasFrame->motor));
+            if(robomasFrame->c620 == true){
+                raw_data[0] = (0x30 + (0x0f & robomasFrame->motor));
+            }else{
+                raw_data[0] = (0x30 + (0x00 & robomasFrame->motor));
+            }
             raw_data[1] = robomasFrame->mode;
             raw_data[2] = robomasFrame->temp;
             switch (robomasFrame->mode)
