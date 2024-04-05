@@ -61,6 +61,7 @@ namespace robomas_bridge
         rclcpp::Publisher<robomas_plugins::msg::Frame>::SharedPtr can_rx_pub_;
         rclcpp::Subscription<robomas_plugins::msg::Frame>::SharedPtr can_tx_sub_;
         rclcpp::Subscription<robomas_plugins::msg::RobomasFrame>::SharedPtr robomas_sub_;
+        rclcpp::Subscription<robomas_plugins::msg::RobomasTarget>::SharedPtr robomas_target0_;
         rclcpp::Subscription<robomas_plugins::msg::RobomasTarget>::SharedPtr robomas_target1_;
         rclcpp::Subscription<robomas_plugins::msg::RobomasTarget>::SharedPtr robomas_target2_;
         rclcpp::Subscription<robomas_plugins::msg::RobomasTarget>::SharedPtr robomas_target3_;
@@ -68,7 +69,6 @@ namespace robomas_bridge
         rclcpp::Subscription<robomas_plugins::msg::RobomasTarget>::SharedPtr robomas_target5_;
         rclcpp::Subscription<robomas_plugins::msg::RobomasTarget>::SharedPtr robomas_target6_;
         rclcpp::Subscription<robomas_plugins::msg::RobomasTarget>::SharedPtr robomas_target7_;
-        rclcpp::Subscription<robomas_plugins::msg::RobomasTarget>::SharedPtr robomas_target8_;
 
         void canTxCallback(const robomas_plugins::msg::Frame::SharedPtr msg);
         void robomasCallback(const robomas_plugins::msg::RobomasFrame::SharedPtr msg);

@@ -9,14 +9,14 @@ namespace robomas_bridge
         can_rx_pub_ = this->create_publisher<robomas_plugins::msg::Frame>("robomas_can_rx", 10);
         can_tx_sub_ = this->create_subscription<robomas_plugins::msg::Frame>("robomas_can_tx", 10, std::bind(&RobomasBridge::canTxCallback, this, _1));
         robomas_sub_ = this->create_subscription<robomas_plugins::msg::RobomasFrame>("robomas_frame", 10, std::bind(&RobomasBridge::robomasCallback, this, _1));
-        robomas_target1_ = this->create_subscription<robomas_plugins::msg::RobomasTarget>("robomas_target1", 10, std::bind(&RobomasBridge::robomasCallback1, this, _1));
-        robomas_target2_ = this->create_subscription<robomas_plugins::msg::RobomasTarget>("robomas_target2", 10, std::bind(&RobomasBridge::robomasCallback2, this, _1));
-        robomas_target3_ = this->create_subscription<robomas_plugins::msg::RobomasTarget>("robomas_target3", 10, std::bind(&RobomasBridge::robomasCallback3, this, _1));
-        robomas_target4_ = this->create_subscription<robomas_plugins::msg::RobomasTarget>("robomas_target4", 10, std::bind(&RobomasBridge::robomasCallback4, this, _1));
-        robomas_target5_ = this->create_subscription<robomas_plugins::msg::RobomasTarget>("robomas_target5", 10, std::bind(&RobomasBridge::robomasCallback5, this, _1));
-        robomas_target6_ = this->create_subscription<robomas_plugins::msg::RobomasTarget>("robomas_target6", 10, std::bind(&RobomasBridge::robomasCallback6, this, _1));
-        robomas_target7_ = this->create_subscription<robomas_plugins::msg::RobomasTarget>("robomas_target7", 10, std::bind(&RobomasBridge::robomasCallback7, this, _1));
-        robomas_target8_ = this->create_subscription<robomas_plugins::msg::RobomasTarget>("robomas_target8", 10, std::bind(&RobomasBridge::robomasCallback8, this, _1));
+        robomas_target0_ = this->create_subscription<robomas_plugins::msg::RobomasTarget>("robomas_target0", 10, std::bind(&RobomasBridge::robomasCallback1, this, _1));
+        robomas_target1_ = this->create_subscription<robomas_plugins::msg::RobomasTarget>("robomas_target1", 10, std::bind(&RobomasBridge::robomasCallback2, this, _1));
+        robomas_target2_ = this->create_subscription<robomas_plugins::msg::RobomasTarget>("robomas_target2", 10, std::bind(&RobomasBridge::robomasCallback3, this, _1));
+        robomas_target3_ = this->create_subscription<robomas_plugins::msg::RobomasTarget>("robomas_target3", 10, std::bind(&RobomasBridge::robomasCallback4, this, _1));
+        robomas_target4_ = this->create_subscription<robomas_plugins::msg::RobomasTarget>("robomas_target4", 10, std::bind(&RobomasBridge::robomasCallback5, this, _1));
+        robomas_target5_ = this->create_subscription<robomas_plugins::msg::RobomasTarget>("robomas_target5", 10, std::bind(&RobomasBridge::robomasCallback6, this, _1));
+        robomas_target6_ = this->create_subscription<robomas_plugins::msg::RobomasTarget>("robomas_target6", 10, std::bind(&RobomasBridge::robomasCallback7, this, _1));
+        robomas_target7_ = this->create_subscription<robomas_plugins::msg::RobomasTarget>("robomas_target7", 10, std::bind(&RobomasBridge::robomasCallback8, this, _1));
 
         // initalize asio members
         io_context_ = std::make_shared<boost::asio::io_context>();
