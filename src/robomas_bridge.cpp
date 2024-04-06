@@ -305,7 +305,7 @@ namespace robomas_bridge
         RCLCPP_ERROR(get_logger(), "TARGET");
         std::vector<uint8_t> raw_data(5);
         // command&motorID[1]|target[4]
-        raw_data[0] = (0x30 | (std::uint8_t)1 << 7 | (0x0f & motor));
+        raw_data[0] = (0x30 | (std::uint8_t)1 << 3 | (0x0f & motor));
         std::memcpy(raw_data.data() + 1, &(robomasTarget->target), sizeof(float));
         std::vector<uint8_t> output = cobs::encode(raw_data);
         //RCLCPP_ERROR(get_logger(), "readOnceHandler error %s", test::hex_to_string(output).c_str());
