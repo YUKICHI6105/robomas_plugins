@@ -226,12 +226,16 @@ namespace robomas_bridge
             RCLCPP_ERROR(get_logger(), "robomas sended");
 
             std::vector<uint8_t> raw_data(19);
-            // command&C610orC620id&motorID[1]|mode[1]|temp[1]|kp[4]|ki[4]|kd[4]|limitie[4]
-            if(robomasFrame->c620 == true){
-                raw_data[0] = (0x30 + (0x0f & robomasFrame->motor));
-            }else{
-                raw_data[0] = (0x30 + (0x00 & robomasFrame->motor));
-            }
+            //  [
+            //     ([7:4]: command | [3:3]: C610orC620id | [2:0]: motorID[1])
+            //     , mode[1]
+            //     , temp[1]
+            //     , kp[4]
+            //     , ki[4]
+            //     , kd[4]
+            //     , limitie[4]
+            //  ]
+            raw_data[0] = 0b0011'0000 | (robomasFrame->c620 ? (std::uint8_t)1 << 3 : 0) | robomasFrame->motor;
             raw_data[1] = robomasFrame->mode;
             raw_data[2] = robomasFrame->temp;
             switch (robomasFrame->mode)
@@ -301,7 +305,8 @@ namespace robomas_bridge
         RCLCPP_ERROR(get_logger(), "TARGET");
         std::vector<uint8_t> raw_data(5);
         // command&motorID[1]|target[4]
-        raw_data[0] = (0x30 + (0x0f & motor));
+        /// @atension: **WARNING** C610のときにもしかしたら下位3ビット目を立てる必要があるかもしれないので追加。これによりC620では逆に動かなくなった
+        raw_data[0] = (0x30 | (std::uint8_t)1 << 3 | (0x0f & motor));
         std::memcpy(raw_data.data() + 1, &(robomasTarget->target), sizeof(float));
         std::vector<uint8_t> output = cobs::encode(raw_data);
         //RCLCPP_ERROR(get_logger(), "readOnceHandler error %s", test::hex_to_string(output).c_str());
