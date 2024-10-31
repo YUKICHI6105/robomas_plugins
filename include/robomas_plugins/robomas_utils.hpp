@@ -7,14 +7,14 @@
 
 namespace robomas
 {
-    static std::unique_ptr<robomas_plugins::msg::RobomasTarget> get_target(const float target_data)
+    [[maybe_unused]] static std::unique_ptr<robomas_plugins::msg::RobomasTarget> get_target(const float target_data)
     {
         auto target = std::make_unique<robomas_plugins::msg::RobomasTarget>();
         target->target = target_data;
         return target;
     }
 
-    static std::unique_ptr<robomas_plugins::msg::RobomasFrame> get_dis_frame(const uint16_t motor_index,const bool c620) 
+    [[maybe_unused]] static std::unique_ptr<robomas_plugins::msg::RobomasFrame> get_dis_frame(const uint16_t motor_index,const bool c620) 
     {
         auto frame = std::make_unique<robomas_plugins::msg::RobomasFrame>();
         frame->mode = 0;
@@ -24,7 +24,7 @@ namespace robomas
         return frame;
     }
 
-    static std::unique_ptr<robomas_plugins::msg::RobomasFrame> get_vel_frame(const uint16_t motor_index,const bool is_c620) 
+    [[maybe_unused]] static std::unique_ptr<robomas_plugins::msg::RobomasFrame> get_vel_frame(const uint16_t motor_index,const bool is_c620) 
     {
         auto frame = std::make_unique<robomas_plugins::msg::RobomasFrame>();
         frame->mode = 1;
@@ -36,7 +36,7 @@ namespace robomas
         return frame;
     }
 
-    static std::unique_ptr<robomas_plugins::msg::RobomasFrame> get_pos_frame(const uint16_t motor_index,const bool c620) 
+    [[maybe_unused]] static std::unique_ptr<robomas_plugins::msg::RobomasFrame> get_pos_frame(const uint16_t motor_index,const bool c620) 
     {
         auto frame = std::make_unique<robomas_plugins::msg::RobomasFrame>();
         frame->mode = 2;
@@ -49,7 +49,7 @@ namespace robomas
         return frame;
     }
 
-    static std::unique_ptr<robomas_plugins::msg::RobomasFrame> get_berutyoku_frame(const uint16_t index,const bool c620, const float target_vel,const float target_pos) 
+    [[maybe_unused]] static std::unique_ptr<robomas_plugins::msg::RobomasFrame> get_berutyoku_frame(const uint16_t index,const bool c620, const float target_vel,const float target_pos) 
     {
         auto frame = std::make_unique<robomas_plugins::msg::RobomasFrame>();
         frame->mode = 3;
@@ -64,7 +64,7 @@ namespace robomas
         return frame;
     }
 
-    static std::unique_ptr<robomas_plugins::msg::RobomasFrame> get_stablepos_frame(const uint16_t motor_index,const bool c620,const float limitVel) 
+    [[maybe_unused]] static std::unique_ptr<robomas_plugins::msg::RobomasFrame> get_stablepos_frame(const uint16_t motor_index,const bool c620,const float limitVel) 
     {
         auto frame = std::make_unique<robomas_plugins::msg::RobomasFrame>();
         frame->mode = 4;
