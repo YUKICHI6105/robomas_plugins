@@ -18,7 +18,7 @@ namespace robomas
     {
         auto frame = std::make_unique<robomas_plugins::msg::RobomasFrame>();
         frame->mode = 0;
-        frame->motor = motor_index;
+        frame->motor = motor_index-1;
         frame->c620 = c620;
         frame->temp = 50;
         return frame;
@@ -28,7 +28,7 @@ namespace robomas
     {
         auto frame = std::make_unique<robomas_plugins::msg::RobomasFrame>();
         frame->mode = 1;
-        frame->motor = motor_index - 1;
+        frame->motor = motor_index-1;
         frame->c620 = is_c620;
         frame->temp = 50;
         frame->velkp = 0.15;
@@ -40,7 +40,7 @@ namespace robomas
     {
         auto frame = std::make_unique<robomas_plugins::msg::RobomasFrame>();
         frame->mode = 2;
-        frame->motor = motor_index;
+        frame->motor = motor_index-1;
         frame->c620 = c620;
         frame->temp = 50;
         frame->velkp = 0.15;
@@ -53,7 +53,7 @@ namespace robomas
     {
         auto frame = std::make_unique<robomas_plugins::msg::RobomasFrame>();
         frame->mode = 3;
-        frame->motor = index;
+        frame->motor = index-1;
         frame->c620 = c620;
         frame->temp = 50;
         frame->velkp = 0.15;
@@ -68,7 +68,7 @@ namespace robomas
     {
         auto frame = std::make_unique<robomas_plugins::msg::RobomasFrame>();
         frame->mode = 4;
-        frame->motor = motor_index;
+        frame->motor = motor_index-1;
         frame->c620 = c620;
         frame->temp = 50;
         frame->velkp = 0.15;
