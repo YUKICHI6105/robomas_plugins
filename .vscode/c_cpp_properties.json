@@ -7,7 +7,7 @@
             },
             "includePath": [
                 "${workspaceFolder}/**",
-                "/opt/ros/humble/include/**",
+                "/opt/ros/lyrical/include/**",
                 "${workspaceFolder}/include/robomas_plugins/**",
                 "${workspaceFolder}/../../install/**",
                 "/usr/include/**"

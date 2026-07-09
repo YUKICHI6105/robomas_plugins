@@ -2,7 +2,7 @@ robomas_plugins
 ====
 ## Description
 It is for my Debug_CAN board.
-It works on ros2 Humble Hawksbill and Foxy Fitzroy. (Using Foxy is not recommended.)
+It works on ros2 Lyrical Luth. (Also tested on Humble Hawksbill and Foxy Fitzroy, though Foxy is EOL and not recommended.)
 
 This supports only environment as 1 byte of 8 bits. (uint8_t == unsigned char)
 
