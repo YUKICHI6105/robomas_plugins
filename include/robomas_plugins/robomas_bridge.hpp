@@ -16,6 +16,7 @@
 #include "robomas_plugins/msg/frame.hpp"
 #include "robomas_plugins/msg/robomas_frame.hpp"
 #include "robomas_plugins/msg/robomas_target.hpp"
+#include "robomas_plugins/msg/robomas_state.hpp"
 using namespace std::chrono_literals;
 using namespace std::placeholders;
 
@@ -25,6 +26,9 @@ namespace slcan_command
     {
         Normal = 0,
         Negotiation = 1,
+        RobomasFrame = 2,
+        RobomasTarget = 3,
+        StateNotify = 4,
 
     };
 } // namespace slcan_command
@@ -69,6 +73,7 @@ namespace robomas_bridge
         rclcpp::Subscription<robomas_plugins::msg::RobomasTarget>::SharedPtr robomas_target5_;
         rclcpp::Subscription<robomas_plugins::msg::RobomasTarget>::SharedPtr robomas_target6_;
         rclcpp::Subscription<robomas_plugins::msg::RobomasTarget>::SharedPtr robomas_target7_;
+        rclcpp::Publisher<robomas_plugins::msg::RobomasState>::SharedPtr robo_state_pub_;
 
         void canTxCallback(const robomas_plugins::msg::Frame::SharedPtr msg);
         void robomasCallback(const robomas_plugins::msg::RobomasFrame::SharedPtr msg);

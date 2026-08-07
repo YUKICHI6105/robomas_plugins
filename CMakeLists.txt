@@ -26,6 +26,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Frame.msg"
   "msg/RobomasFrame.msg"
   "msg/RobomasTarget.msg"
+  "msg/RobomasState.msg"
   DEPENDENCIES std_msgs
 )
 

@@ -17,6 +17,7 @@ namespace robomas_bridge
         robomas_target5_ = this->create_subscription<robomas_plugins::msg::RobomasTarget>("robomas_target6", 10, std::bind(&RobomasBridge::robomasCallback6, this, _1));
         robomas_target6_ = this->create_subscription<robomas_plugins::msg::RobomasTarget>("robomas_target7", 10, std::bind(&RobomasBridge::robomasCallback7, this, _1));
         robomas_target7_ = this->create_subscription<robomas_plugins::msg::RobomasTarget>("robomas_target8", 10, std::bind(&RobomasBridge::robomasCallback8, this, _1));
+        robo_state_pub_ = this->create_publisher<robomas_plugins::msg::RobomasState>("robomas_state", 10);
 
         // initalize asio members
         io_context_ = std::make_shared<boost::asio::io_context>();
@@ -342,6 +343,32 @@ namespace robomas_bridge
         // publish the data to the topic.
         if (data.size() < 12)
         {
+            // EMS(緊急停止) High/Low, Start合図の割り込み通知。
+            // 実機ログでの実測値: cobs::decode() 後は [0x20, 'H'|'L'|'S'] のような2バイト。
+            // 1バイト目(0x20)が何を表すかは未確認のため、現状は検証せずログにのみ残す。
+            if (cobs_output_buffer_.size() == 2)
+            {
+                auto state_msg = std::make_unique<robomas_plugins::msg::RobomasState>();
+                state_msg->header.stamp = this->now();
+                switch (cobs_output_buffer_[1])
+                {
+                case 'H':
+                    state_msg->state = robomas_plugins::msg::RobomasState::EMS_CLEARED;
+                    break;
+                case 'L':
+                    state_msg->state = robomas_plugins::msg::RobomasState::EMS_TRIGGERED;
+                    break;
+                case 'S':
+                    state_msg->state = robomas_plugins::msg::RobomasState::START;
+                    break;
+                default:
+                    RCLCPP_ERROR(get_logger(), "unknown EMS/Start notification: %s", test::hex_to_string(cobs_output_buffer_).c_str());
+                    return;
+                }
+                RCLCPP_INFO(get_logger(), "EMS or Start notification: %s", state_msg->state.c_str());
+                robo_state_pub_->publish(std::move(state_msg));
+                return;
+            }
             RCLCPP_ERROR(get_logger(), "data size is too small");
             return;
         }
