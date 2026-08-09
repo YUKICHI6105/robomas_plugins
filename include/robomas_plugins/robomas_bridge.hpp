@@ -17,6 +17,7 @@
 #include "robomas_plugins/msg/robomas_frame.hpp"
 #include "robomas_plugins/msg/robomas_target.hpp"
 #include "robomas_plugins/msg/robomas_state.hpp"
+#include "robomas_plugins/msg/tape_led.hpp"
 using namespace std::chrono_literals;
 using namespace std::placeholders;
 
@@ -26,9 +27,8 @@ namespace slcan_command
     {
         Normal = 0,
         Negotiation = 1,
-        RobomasFrame = 2,
-        RobomasTarget = 3,
         StateNotify = 4,
+        LedSet = 5,
 
     };
 } // namespace slcan_command
@@ -74,6 +74,7 @@ namespace robomas_bridge
         rclcpp::Subscription<robomas_plugins::msg::RobomasTarget>::SharedPtr robomas_target6_;
         rclcpp::Subscription<robomas_plugins::msg::RobomasTarget>::SharedPtr robomas_target7_;
         rclcpp::Publisher<robomas_plugins::msg::RobomasState>::SharedPtr robo_state_pub_;
+        rclcpp::Subscription<robomas_plugins::msg::TapeLed>::SharedPtr tape_led_sub_;
 
         void canTxCallback(const robomas_plugins::msg::Frame::SharedPtr msg);
         void robomasCallback(const robomas_plugins::msg::RobomasFrame::SharedPtr msg);
@@ -85,6 +86,10 @@ namespace robomas_bridge
         void robomasCallback6(const robomas_plugins::msg::RobomasTarget::SharedPtr msg);
         void robomasCallback7(const robomas_plugins::msg::RobomasTarget::SharedPtr msg);
         void robomasCallback8(const robomas_plugins::msg::RobomasTarget::SharedPtr msg);
+        void tapeLedCallback(const robomas_plugins::msg::TapeLed::SharedPtr msg);
+
+        // send a color to the tape LED. r/g/b are 0-255.
+        void sendTapeLedColor(uint8_t r, uint8_t g, uint8_t b);
 
         const int initialize_timeout_ = 1000; // ms
         // port open and setting.

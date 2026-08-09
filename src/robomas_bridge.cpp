@@ -18,6 +18,7 @@ namespace robomas_bridge
         robomas_target6_ = this->create_subscription<robomas_plugins::msg::RobomasTarget>("robomas_target7", 10, std::bind(&RobomasBridge::robomasCallback7, this, _1));
         robomas_target7_ = this->create_subscription<robomas_plugins::msg::RobomasTarget>("robomas_target8", 10, std::bind(&RobomasBridge::robomasCallback8, this, _1));
         robo_state_pub_ = this->create_publisher<robomas_plugins::msg::RobomasState>("robomas_state", 10);
+        tape_led_sub_ = this->create_subscription<robomas_plugins::msg::TapeLed>("tape_led", 10, std::bind(&RobomasBridge::tapeLedCallback, this, _1));
 
         // initalize asio members
         io_context_ = std::make_shared<boost::asio::io_context>();
@@ -113,6 +114,22 @@ namespace robomas_bridge
             return;
 
         asyncWrite(msg, 0x0f);
+    }
+
+    void RobomasBridge::tapeLedCallback(const robomas_plugins::msg::TapeLed::SharedPtr msg)
+    {
+        if (!is_active_)
+            return;
+
+        sendTapeLedColor(msg->r, msg->g, msg->b);
+    }
+
+    // send a color to the tape LED. r/g/b are 0-255.
+    // wire format (payload before COBS encode): [LedSet << 4, r, g, b]
+    // NOTE: this is a newly defined command; the microcontroller firmware needs to implement it accordingly.
+    void RobomasBridge::sendTapeLedColor(uint8_t r, uint8_t g, uint8_t b)
+    {
+        asyncWrite(slcan_command::LedSet, std::vector<uint8_t>{r, g, b});
     }
 
     // port open and setting.
@@ -360,6 +377,8 @@ namespace robomas_bridge
                     break;
                 case 'S':
                     state_msg->state = robomas_plugins::msg::RobomasState::START;
+                    // スタート検知時、テープLEDを青50%(255の50%として128)で点灯する。
+                    sendTapeLedColor(0, 0, 128);
                     break;
                 default:
                     RCLCPP_ERROR(get_logger(), "unknown EMS/Start notification: %s", test::hex_to_string(cobs_output_buffer_).c_str());
