@@ -334,7 +334,7 @@ namespace robomas_bridge
     {
         std::vector<uint8_t> cobs_output_buffer_ = cobs::decode(data);
 
-        RCLCPP_INFO(get_logger(), "readingProcess %s", test::hex_to_string(cobs_output_buffer_).c_str());
+        RCLCPP_DEBUG(get_logger(), "readingProcess %s", test::hex_to_string(cobs_output_buffer_).c_str());
 
         // check it is handshake. USBCAN will send "HelloSlcan" when the connection is established.
         constexpr uint8_t HelloSlcan[] = {slcan_command::Negotiation << 4, 'H', 'e', 'l', 'l', 'o', 'S', 'L', 'C', 'A', 'N'};
