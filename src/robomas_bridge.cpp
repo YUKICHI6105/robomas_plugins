@@ -241,9 +241,10 @@ namespace robomas_bridge
         */
         if (robomasFrame->motor < 8)
         {
-            RCLCPP_ERROR(get_logger(), "robomas sended");
+            RCLCPP_DEBUG(get_logger(), "robomas frame: motor %u mode %u", robomasFrame->motor, robomasFrame->mode);
 
-            std::vector<uint8_t> raw_data(19);
+            // mode 3 carries two more floats (tyoku_vel_target, tyoku_pos_target) after poskp
+            std::vector<uint8_t> raw_data(robomasFrame->mode == 3 ? 23 : 19);
             //  [
             //     ([7:4]: command | [3:3]: frameORtarget | [2:0]: motorID[1])
             //     , [7:7]: c610orc620 | mode[1]
@@ -320,7 +321,7 @@ namespace robomas_bridge
 
     void RobomasBridge::asyncWrite(const robomas_plugins::msg::RobomasTarget::SharedPtr robomasTarget, uint8_t motor)
     {
-        RCLCPP_ERROR(get_logger(), "TARGET");
+        RCLCPP_DEBUG(get_logger(), "robomas target: motor %u target %f", motor & 0x07, robomasTarget->target);
         std::vector<uint8_t> raw_data(5);
         // command&motorID[1]|target[4]
         raw_data[0] = (0x30 | (std::uint8_t)1 << 3 | (0x0f & motor));
