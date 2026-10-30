@@ -2,6 +2,8 @@
 
 #include <cstring>
 #include <chrono>
+#include <atomic>
+#include <cstdint>
 #include <future>
 #include <vector>
 
@@ -43,11 +45,11 @@ namespace robomas_bridge
     private:
         /////////////Slacan Status///////////////////
         // ctrl+c or ros2 shutdown is called.
-        bool is_shutdown_ = false;
+        std::atomic<bool> is_shutdown_{false};
         // serial port connected but "HelloSlcan" has not been returned yet.
-        bool is_connected_ = false;
+        std::atomic<bool> is_connected_{false};
         // sconection with usbcan is active. the serial port is new usbcan.
-        bool is_active_ = false;
+        std::atomic<bool> is_active_{false};
         /////////////Slacan Status///////////////////
 
         std::string port_name_ = "/dev/robomas";
@@ -59,7 +61,11 @@ namespace robomas_bridge
         // it will prohabit the io_context to stop.
         std::unique_ptr<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> work_guard_;
 
-        boost::asio::streambuf read_streambuf_;
+        std::shared_ptr<boost::asio::streambuf> read_streambuf_;
+        std::unique_ptr<boost::asio::steady_timer> reconnect_timer_;
+        std::unique_ptr<boost::asio::steady_timer> handshake_timer_;
+        uint64_t connection_generation_ = 0;
+        std::chrono::steady_clock::time_point handshake_started_;
 
         // thread fot running io_context
         std::thread io_context_thread_;
@@ -95,14 +101,12 @@ namespace robomas_bridge
         // send a color to the tape LED. r/g/b are 0-255.
         void sendTapeLedColor(uint8_t r, uint8_t g, uint8_t b);
 
-        const int initialize_timeout_ = 1000; // ms
-        // port open and setting.
+        // Transport state is owned by the single Asio event-loop thread.
         void initializeSerialPort(const std::string port_name);
+        void scheduleReconnect();
+        void scheduleHandshake();
+        void disconnect(const std::string &reason);
         void initializeWriteQueue();
-
-        const int handshake_timeout_ = 1000; // ms
-        // check the serial deveice is usbcan.
-        bool handshake();
 
         // convert message from usbcan, and process it.
         void readingProcess(const std::vector<uint8_t> data);
@@ -115,14 +119,7 @@ namespace robomas_bridge
         // Directly use is deprecated.
         void asyncWrite(const std::vector<uint8_t> data);
 
-        // you should call this function at once after the connection is established.
         void asyncRead();
-
-        void asyncReadOnce();
-
-        // these function will be called when the data is read from the serial port.
-        void readOnceHandler(const boost::system::error_code &error, std::size_t bytes_transferred);
-        void readHandler(const boost::system::error_code &error, std::size_t bytes_transferred);
 
         // these function will be called when the data is written to the serial port. for error handling.
         void writeHandler(const boost::system::error_code &error, std::size_t bytes_transferred);
@@ -130,14 +127,7 @@ namespace robomas_bridge
     public:
         RobomasBridge(const rclcpp::NodeOptions &options);
 
-        // shutfdown process
-        void onShutdown()
-        {
-            is_shutdown_ = true;
-            is_active_ = false;
-            io_context_->stop();
-            serial_port_->close();
-            RCLCPP_INFO(this->get_logger(), "END");
-        }
+        ~RobomasBridge() override;
+        void onShutdown();
     };
 }
