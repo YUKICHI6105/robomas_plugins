@@ -343,17 +343,17 @@ namespace robomas_bridge
               std::memcpy(raw_data.data() + 15, &(robomasFrame->tyoku_vel_target), sizeof(float));
               std::memcpy(raw_data.data() + 19, &(robomasFrame->tyoku_pos_target), sizeof(float));
               break;
-              case 4:
-                std::memcpy(raw_data.data() + 3, &(robomasFrame->velkp), sizeof(float));
-                std::memcpy(raw_data.data() + 7, &(robomasFrame->velki), sizeof(float));
-                std::memcpy(raw_data.data() + 11, &(robomasFrame->poskp), sizeof(float));
-                std::memcpy(raw_data.data() + 15, &(robomasFrame->stable_pos_limit_vel), sizeof(float));
-              break;
+              case 4: // stablepos: position P -> velocity limit -> velocity PI
+                raw_data = makeStablePositionConfig(
+                    robomasFrame->motor, robomasFrame->c620, robomasFrame->temp,
+                    robomasFrame->velkp, robomasFrame->velki, robomasFrame->poskp,
+                    robomasFrame->stable_pos_limit_vel);
+                break;
             default:
               RCLCPP_ERROR(get_logger(), "robomasFrame->mode error");
               break;
             }
-            if (robomasFrame->mode == 2)
+            if (resetsPositionOrigin(robomasFrame->mode))
             {
                 target_epochs_.reset(robomasFrame->motor,
                     stampNanoseconds(robomasFrame->header.stamp.sec, robomasFrame->header.stamp.nanosec));

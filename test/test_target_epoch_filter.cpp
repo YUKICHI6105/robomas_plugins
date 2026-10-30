@@ -2,6 +2,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <thread>
 
 void require(bool condition, const char *message)
 {
@@ -28,5 +29,20 @@ int main()
     require(filter.accepts(3, 0), "an unstamped frame must retain legacy target support");
     require(robomas_bridge::stampNanoseconds(-1, 900000000) == -100000000LL,
             "negative ROS stamps must use signed arithmetic");
+    // Concurrent callbacks are possible in a multi-threaded ROS 2 executor.
+    std::thread writer([&filter]()
+    {
+        for (int i = 1; i <= 10000; ++i)
+            filter.reset(0, i);
+    });
+    std::thread reader([&filter]()
+    {
+        for (int i = 1; i <= 10000; ++i)
+            (void)filter.accepts(0, i);
+    });
+    writer.join();
+    reader.join();
+    require(filter.accepts(0, 10000), "final concurrent timestamp missing");
+    require(!filter.accepts(0, 9999), "stale target accepted after concurrent updates");
     std::cout << "target_epoch_filter: PASS\n";
 }

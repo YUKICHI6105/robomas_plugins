@@ -72,6 +72,8 @@ install(
 
 
 if(BUILD_TESTING)
+  enable_testing()
+  find_package(Threads REQUIRED)
   foreach(test_name robomas_protocol serial_write_queue target_epoch_filter)
     add_executable(test_${test_name} test/test_${test_name}.cpp)
     target_include_directories(test_${test_name} PRIVATE include)
