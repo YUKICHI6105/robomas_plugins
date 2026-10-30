@@ -72,6 +72,13 @@ install(
 
 
 if(BUILD_TESTING)
+  foreach(test_name robomas_protocol serial_write_queue target_epoch_filter)
+    add_executable(test_${test_name} test/test_${test_name}.cpp)
+    target_include_directories(test_${test_name} PRIVATE include)
+    target_link_libraries(test_${test_name} Threads::Threads)
+    add_test(NAME robomas_${test_name} COMMAND test_${test_name})
+  endforeach()
+
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
   # comment the line when a copyright and license is added to all source files

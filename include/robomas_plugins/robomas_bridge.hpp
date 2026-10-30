@@ -11,7 +11,9 @@
 #include <boost/asio.hpp>
 #include <boost/array.hpp>
 #include <boost/bind/bind.hpp>
-#include "cobs.hpp"
+#include "robomas_protocol.hpp"
+#include "serial_write_queue.hpp"
+#include "target_epoch_filter.hpp"
 #include "test.hpp"
 #include "robomas_plugins/msg/frame.hpp"
 #include "robomas_plugins/msg/robomas_frame.hpp"
@@ -52,6 +54,8 @@ namespace robomas_bridge
 
         std::shared_ptr<boost::asio::io_context> io_context_;
         std::shared_ptr<boost::asio::serial_port> serial_port_;
+        std::unique_ptr<SerialWriteQueue> write_queue_;
+        TargetEpochFilter target_epochs_;
         // it will prohabit the io_context to stop.
         std::unique_ptr<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> work_guard_;
 
@@ -94,6 +98,7 @@ namespace robomas_bridge
         const int initialize_timeout_ = 1000; // ms
         // port open and setting.
         void initializeSerialPort(const std::string port_name);
+        void initializeWriteQueue();
 
         const int handshake_timeout_ = 1000; // ms
         // check the serial deveice is usbcan.

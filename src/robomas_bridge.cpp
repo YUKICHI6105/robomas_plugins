@@ -23,6 +23,7 @@ namespace robomas_bridge
         // initalize asio members
         io_context_ = std::make_shared<boost::asio::io_context>();
         serial_port_ = std::make_shared<boost::asio::serial_port>(io_context_->get_executor());
+        initializeWriteQueue();
         work_guard_ = std::make_unique<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>>(io_context_->get_executor());
         // start io_context thread
         io_context_thread_ = std::thread([this]()
@@ -177,9 +178,22 @@ namespace robomas_bridge
     void RobomasBridge::asyncWrite(const std::vector<uint8_t> data)
     {
         boost::asio::post(*io_context_, [this, data]()
-                          { boost::asio::async_write(*serial_port_, boost::asio::buffer(data),
-                                                     boost::bind(&RobomasBridge::writeHandler, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)); });
+                          { write_queue_->write(data); });
         return;
+    }
+
+    void RobomasBridge::initializeWriteQueue()
+    {
+        write_queue_ = std::make_unique<SerialWriteQueue>(
+            [this, port = serial_port_](const std::vector<uint8_t> &data, SerialWriteQueue::Completion complete)
+            {
+                boost::asio::async_write(*port, boost::asio::buffer(data),
+                    [this, complete = std::move(complete)](const boost::system::error_code &error, std::size_t bytes)
+                    {
+                        writeHandler(error, bytes);
+                        complete(!error);
+                    });
+            });
     }
 
     void RobomasBridge::asyncWrite(const robomas_plugins::msg::Frame::SharedPtr msg)
@@ -259,6 +273,8 @@ namespace robomas_bridge
             raw_data[2] = robomasFrame->temp;
             switch (robomasFrame->mode)
             {
+            case 0:
+              break;
             case 1:
               std::memcpy(raw_data.data() + 3, &(robomasFrame->velkp), sizeof(float));
               std::memcpy(raw_data.data() + 7, &(robomasFrame->velki), sizeof(float));
@@ -285,7 +301,12 @@ namespace robomas_bridge
               RCLCPP_ERROR(get_logger(), "robomasFrame->mode error");
               break;
             }
-            std::vector<uint8_t> output = cobs::encode(raw_data);
+            if (robomasFrame->mode == 2)
+            {
+                target_epochs_.reset(robomasFrame->motor,
+                    stampNanoseconds(robomasFrame->header.stamp.sec, robomasFrame->header.stamp.nanosec));
+            }
+            std::vector<uint8_t> output = encodeRobomasFrameWithFeedback(raw_data);
             //RCLCPP_ERROR(get_logger(), "readOnceHandler error %s", test::hex_to_string(output).c_str());
             asyncWrite(output);
         }
@@ -321,6 +342,12 @@ namespace robomas_bridge
 
     void RobomasBridge::asyncWrite(const robomas_plugins::msg::RobomasTarget::SharedPtr robomasTarget, uint8_t motor)
     {
+        if (!target_epochs_.accepts(motor & 0x07,
+            stampNanoseconds(robomasTarget->header.stamp.sec, robomasTarget->header.stamp.nanosec)))
+        {
+            RCLCPP_DEBUG(get_logger(), "dropping target older than position reset for motor %u", motor & 0x07);
+            return;
+        }
         RCLCPP_DEBUG(get_logger(), "robomas target: motor %u target %f", motor & 0x07, robomasTarget->target);
         std::vector<uint8_t> raw_data(5);
         // command&motorID[1]|target[4]
@@ -466,6 +493,7 @@ namespace robomas_bridge
             io_context_thread_.detach();
             // initalize asio members
             serial_port_ = std::make_shared<boost::asio::serial_port>(io_context_->get_executor());
+            initializeWriteQueue();
             work_guard_ = std::make_unique<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>>(io_context_->get_executor());
             // start io_context thread
             io_context_thread_ = std::thread([this]()
