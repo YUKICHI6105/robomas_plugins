@@ -4,8 +4,6 @@ namespace robomas_bridge
 
     RobomasBridge::RobomasBridge(const rclcpp::NodeOptions &options) : Node("robomas_bridge", options)
     {
-        rclcpp::on_shutdown([this]()
-                            { this->onShutdown(); });
         can_rx_pub_ = this->create_publisher<robomas_plugins::msg::Frame>("robomas_can_rx", 10);
         can_tx_sub_ = this->create_subscription<robomas_plugins::msg::Frame>("robomas_can_tx", 10, std::bind(&RobomasBridge::canTxCallback, this, _1));
         robomas_sub_ = this->create_subscription<robomas_plugins::msg::RobomasFrame>("robomas_frame", 10, std::bind(&RobomasBridge::robomasCallback, this, _1));
@@ -23,7 +21,8 @@ namespace robomas_bridge
         // initalize asio members
         io_context_ = std::make_shared<boost::asio::io_context>();
         serial_port_ = std::make_shared<boost::asio::serial_port>(io_context_->get_executor());
-        initializeWriteQueue();
+        reconnect_timer_ = std::make_unique<boost::asio::steady_timer>(*io_context_);
+        handshake_timer_ = std::make_unique<boost::asio::steady_timer>(*io_context_);
         work_guard_ = std::make_unique<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>>(io_context_->get_executor());
         // start io_context thread
         io_context_thread_ = std::thread([this]()
@@ -33,9 +32,7 @@ namespace robomas_bridge
 
         RCLCPP_INFO(get_logger(), "RobomasBridge is initialized.");
 
-        initializeSerialPort(port_name_);
-        asyncRead();
-        handshake();
+        boost::asio::post(*io_context_, [this]() { initializeSerialPort(port_name_); });
     }
     void RobomasBridge::canTxCallback(const robomas_plugins::msg::Frame::SharedPtr msg)
     {
@@ -133,64 +130,119 @@ namespace robomas_bridge
         asyncWrite(slcan_command::LedSet, std::vector<uint8_t>{r, g, b});
     }
 
-    // port open and setting.
+
+    // A missing or reset USB device is retried without blocking Asio or ROS.
     void RobomasBridge::initializeSerialPort(const std::string port_name)
     {
-        rclcpp::WallRate rate(10ms);
-        while (!is_shutdown_)
+        if (is_shutdown_ || is_connected_) return;
+        try
         {
-            try
-            {
-                serial_port_->open(port_name);
-                serial_port_->set_option(boost::asio::serial_port_base::character_size(8));
-                serial_port_->set_option(boost::asio::serial_port_base::flow_control(boost::asio::serial_port_base::flow_control::none));
-                serial_port_->set_option(boost::asio::serial_port_base::parity(boost::asio::serial_port_base::parity::none));
-                serial_port_->set_option(boost::asio::serial_port_base::stop_bits(boost::asio::serial_port_base::stop_bits::one));
-                serial_port_->set_option(boost::asio::serial_port_base::baud_rate(115200));
-            }
-            catch (boost::system::system_error &e)
-            {
-                switch (e.code().value())
-                {
-                case 2:
-                    RCLCPP_ERROR(get_logger(), "Cannot connect. No such file or directory");
-                    break;
-                case 13:
-                    RCLCPP_ERROR(get_logger(), "Cannot connect. Permission denied");
-                    break;
-                default:
-                    RCLCPP_ERROR(get_logger(), "Cannot connect. %s", e.what());
-                    serial_port_->close();
-                    break;
-                }
-            }
-            if (serial_port_->is_open())
-            {
-                RCLCPP_INFO(get_logger(), "connected");
-                is_connected_ = true;
-                break;
-            }
-            rate.sleep();
+            serial_port_->open(port_name);
+            serial_port_->set_option(boost::asio::serial_port_base::character_size(8));
+            serial_port_->set_option(boost::asio::serial_port_base::flow_control(
+                boost::asio::serial_port_base::flow_control::none));
+            serial_port_->set_option(boost::asio::serial_port_base::parity(
+                boost::asio::serial_port_base::parity::none));
+            serial_port_->set_option(boost::asio::serial_port_base::stop_bits(
+                boost::asio::serial_port_base::stop_bits::one));
+            serial_port_->set_option(boost::asio::serial_port_base::baud_rate(115200));
         }
-        return;
+        catch (const boost::system::system_error &e)
+        {
+            RCLCPP_WARN(get_logger(), "Cannot open %s: %s", port_name.c_str(), e.what());
+            boost::system::error_code ignored;
+            if (serial_port_->is_open()) serial_port_->close(ignored);
+            scheduleReconnect();
+            return;
+        }
+
+        ++connection_generation_;
+        is_connected_ = true;
+        is_active_ = false;
+        read_streambuf_ = std::make_shared<boost::asio::streambuf>(4096);
+        initializeWriteQueue();
+        handshake_started_ = std::chrono::steady_clock::now();
+        RCLCPP_INFO(get_logger(), "Connected to %s; negotiating", port_name.c_str());
+        asyncRead();
+        scheduleHandshake();
+    }
+
+    void RobomasBridge::scheduleReconnect()
+    {
+        if (is_shutdown_) return;
+        reconnect_timer_->expires_after(500ms);
+        reconnect_timer_->async_wait([this](const boost::system::error_code &error)
+        {
+            if (!error && !is_shutdown_) initializeSerialPort(port_name_);
+        });
+    }
+
+    // Do not block an Asio callback waiting for a response handled by Asio.
+    void RobomasBridge::scheduleHandshake()
+    {
+        if (is_shutdown_ || !is_connected_ || is_active_) return;
+        if (std::chrono::steady_clock::now() - handshake_started_ > 3s)
+        {
+            disconnect("handshake timeout");
+            return;
+        }
+        const std::vector<uint8_t> hello = {'H', 'e', 'l', 'l', 'o',
+                                             'U', 'S', 'B', 'C', 'A', 'N'};
+        asyncWrite(slcan_command::Negotiation, hello);
+        const auto generation = connection_generation_;
+        handshake_timer_->expires_after(200ms);
+        handshake_timer_->async_wait([this, generation](const boost::system::error_code &error)
+        {
+            if (!error && !is_shutdown_ && generation == connection_generation_)
+                scheduleHandshake();
+        });
+    }
+
+    // Each reconnection gets a new serial object and a new session generation.
+    // Pending old-session handlers cannot interfere with the new connection.
+    void RobomasBridge::disconnect(const std::string &reason)
+    {
+        if (is_shutdown_ || !is_connected_) return;
+        ++connection_generation_;
+        is_active_ = false;
+        is_connected_ = false;
+        boost::system::error_code ignored;
+        handshake_timer_->cancel(ignored);
+        serial_port_->cancel(ignored);
+        serial_port_->close(ignored);
+        write_queue_.reset();
+        serial_port_ = std::make_shared<boost::asio::serial_port>(io_context_->get_executor());
+        read_streambuf_.reset();
+        RCLCPP_WARN(get_logger(), "USB serial disconnected (%s); retrying", reason.c_str());
+        scheduleReconnect();
     }
 
     void RobomasBridge::asyncWrite(const std::vector<uint8_t> data)
     {
         boost::asio::post(*io_context_, [this, data]()
-                          { write_queue_->write(data); });
+        {
+            if (!is_shutdown_ && is_connected_ && write_queue_)
+                write_queue_->write(data);
+        });
         return;
     }
 
     void RobomasBridge::initializeWriteQueue()
     {
+        const auto generation = connection_generation_;
         write_queue_ = std::make_unique<SerialWriteQueue>(
-            [this, port = serial_port_](const std::vector<uint8_t> &data, SerialWriteQueue::Completion complete)
+            [this, port = serial_port_, generation](const std::vector<uint8_t> &data,
+                                                     SerialWriteQueue::Completion complete)
             {
                 boost::asio::async_write(*port, boost::asio::buffer(data),
-                    [this, complete = std::move(complete)](const boost::system::error_code &error, std::size_t bytes)
+                    [this, generation, complete = std::move(complete)](
+                        const boost::system::error_code &error, std::size_t bytes)
                     {
-                        writeHandler(error, bytes);
+                        if (generation == connection_generation_ && !is_shutdown_)
+                        {
+                            writeHandler(error, bytes);
+                            if (error) disconnect(error.message());
+                        }
                         complete(!error);
                     });
             });
@@ -381,6 +433,8 @@ namespace robomas_bridge
             {
                 RCLCPP_INFO(get_logger(), "negotiation success");
                 is_active_ = true;
+                boost::system::error_code ignored;
+                handshake_timer_->cancel(ignored);
                 return;
             }
         }
@@ -427,6 +481,12 @@ namespace robomas_bridge
         uint8_t dlc : data length
         uint8_t data[8] : data
         */
+        if (cobs_output_buffer_.size() < 14)
+        {
+            RCLCPP_WARN(get_logger(), "Discarding truncated CAN frame: %zu bytes",
+                        cobs_output_buffer_.size());
+            return;
+        }
         auto msg = std::make_unique<robomas_plugins::msg::Frame>();
         msg->is_error = cobs_output_buffer_[0] & 0x1;
         msg->is_extended = cobs_output_buffer_[0] >> 1 & 0x1;
@@ -441,86 +501,61 @@ namespace robomas_bridge
         return;
     }
 
-    bool RobomasBridge::handshake()
+
+    // A read keeps its own port and streambuf alive through completion.
+    void RobomasBridge::asyncRead()
     {
-        rclcpp::WallRate rate(10ms);
-        while (!is_active_ && !is_shutdown_)
-        {
-            const std::vector<uint8_t> HelloUSBCAN = {'H', 'e', 'l', 'l', 'o', 'U', 'S', 'B', 'C', 'A', 'N'};
-            asyncWrite(slcan_command::Negotiation, HelloUSBCAN);
-            RCLCPP_INFO(get_logger(), "Waiting for negotiation...");
-            rate.sleep();
-        }
-        return true;
+        if (is_shutdown_ || !is_connected_) return;
+        const auto generation = connection_generation_;
+        auto port = serial_port_;
+        auto buffer = read_streambuf_;
+        boost::asio::async_read_until(*port, *buffer, '\0',
+            [this, generation, port, buffer](
+                const boost::system::error_code &error, std::size_t bytes_transferred)
+            {
+                if (is_shutdown_ || generation != connection_generation_) return;
+                if (error)
+                {
+                    disconnect(error.message());
+                    return;
+                }
+                auto first = boost::asio::buffers_begin(buffer->data());
+                std::vector<uint8_t> data(first, first + bytes_transferred);
+                buffer->consume(bytes_transferred);
+                try
+                {
+                    readingProcess(data);
+                }
+                catch (const std::exception &e)
+                {
+                    RCLCPP_ERROR(get_logger(), "Error decoding serial data: %s", e.what());
+                    disconnect("invalid serial frame");
+                    return;
+                }
+                if (!is_shutdown_ && generation == connection_generation_) asyncRead();
+            });
     }
 
-    void RobomasBridge::readOnceHandler(const boost::system::error_code &error, std::size_t bytes_transferred)
+    RobomasBridge::~RobomasBridge()
     {
-        if (error)
-        {
-            RCLCPP_ERROR(get_logger(), "readOnceHandler error %s", error.message().c_str());
-            return;
-        }
-
-        std::vector<uint8_t> data(bytes_transferred);
-
-        // it can use iostream but
-        const uint8_t *data_ptr = static_cast<const uint8_t *>(read_streambuf_.data().data());
-        for (std::size_t i = 0; i < bytes_transferred; i++)
-        {
-            data[i] = data_ptr[i];
-        }
-
-        RobomasBridge::readingProcess(data);
-
-        // RCLCPP_INFO(get_logger(),"readOnceHandler %s",test::hex_to_string(data,bytes_transferred).c_str());
-        read_streambuf_.consume(bytes_transferred);
-        return;
+        onShutdown();
     }
 
-    void RobomasBridge::readHandler(const boost::system::error_code &error, std::size_t bytes_transferred)
+    void RobomasBridge::onShutdown()
     {
-        // end of file; it means usb disconnect.
-        if (error == boost::asio::error::eof)
+        if (is_shutdown_.exchange(true)) return;
+        is_active_ = false;
+        is_connected_ = false;
+        work_guard_.reset();
+        io_context_->stop();
+        if (io_context_thread_.joinable()) io_context_thread_.join();
+        boost::system::error_code ignored;
+        if (serial_port_)
         {
-            is_active_ = false;
-            is_connected_ = false;
-            // reconnect
-            serial_port_->close();
-            io_context_->restart();
-            serial_port_.reset();
-            work_guard_.reset();
-            io_context_thread_.detach();
-            // initalize asio members
-            serial_port_ = std::make_shared<boost::asio::serial_port>(io_context_->get_executor());
-            initializeWriteQueue();
-            work_guard_ = std::make_unique<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>>(io_context_->get_executor());
-            // start io_context thread
-            io_context_thread_ = std::thread([this]()
-                                             {
-                                                 io_context_->run();
-                                                 RCLCPP_INFO(this->get_logger(), "io_context_->run() is finished."); });
-
-            initializeSerialPort(port_name_);
-            asyncRead();
-            handshake();
-            return;
+            serial_port_->cancel(ignored);
+            serial_port_->close(ignored);
         }
-        readOnceHandler(error, bytes_transferred);
-        asyncRead();
-
-        return;
-    }
-
-    // write data to the serial port. it calls asyncReadOnce() after reading.
-    void RobomasBridge::asyncReadOnce()
-    {
-        // read and write functions can worl in the same time.
-        // so, it is not necessary to use io_context_->post()      (this is a strand.)
-        boost::asio::async_read_until(*serial_port_, read_streambuf_, '\0',
-                                      boost::bind(&RobomasBridge::readOnceHandler, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
-
-        return;
+        write_queue_.reset();
     }
 
     void RobomasBridge::writeHandler(const boost::system::error_code &error, std::size_t bytes_transferred)
@@ -553,16 +588,6 @@ namespace robomas_bridge
                 break;
             }
         }
-    }
-
-    // write data to the serial port. it calls asyncRead() after reading.
-    void RobomasBridge::asyncRead()
-    {
-        // read and write functions can worl in the same time.
-        // so, it is not necessary to use io_context_->post()      (this is a strand.)
-        boost::asio::async_read_until(*serial_port_, read_streambuf_, '\0',
-                                      boost::bind(&RobomasBridge::readHandler, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
-        return;
     }
 
 } // namespace robomas_bridge
